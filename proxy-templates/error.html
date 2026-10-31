@@ -1,0 +1,39 @@
+{{define "error.html"}}<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.StatusCode}} · Acceso</title>
+<style>
+  :root { --bg:#f8f7f4; --ink:#131209; --muted:#57534e; --accent:#be123c; --line:rgba(19,18,9,.14);
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100dvh; background:var(--bg); color:var(--ink); font-family:var(--font); line-height:1.5; border-top:12px solid var(--accent); }
+  main { width:min(100% - 2rem, 40rem); margin-inline:auto; padding-top:clamp(2.5rem,12vh,7rem); }
+  .code { font-size:clamp(4rem,16vw,8rem); font-weight:800; letter-spacing:-.03em; line-height:1; margin:0; color:var(--accent); }
+  h1 { margin:1rem 0 .5rem; font-size:clamp(1.75rem,5vw,2.5rem); font-weight:800; letter-spacing:-.02em; text-wrap:balance; }
+  p { margin:0; font-size:1.125rem; color:var(--muted); max-width:38ch; }
+  .actions { display:flex; flex-wrap:wrap; gap:.75rem; margin-top:2rem; }
+  .btn { display:inline-flex; align-items:center; min-height:3rem; padding:0 1.5rem; font:inherit; font-weight:600; text-decoration:none; border:2px solid var(--ink); color:var(--ink); }
+  .btn:hover { background:var(--ink); color:var(--bg); }
+  .btn:focus-visible { outline:3px solid var(--ink); outline-offset:3px; }
+  ::selection { background:var(--accent); color:#fff; }
+</style>
+</head>
+<body>
+<main>
+  <p class="code" aria-hidden="true">{{.StatusCode}}</p>
+  {{if eq .StatusCode 403}}
+  <h1>Acceso denegado</h1>
+  <p>Iniciaste sesión, pero tu usuario no tiene el rol necesario para esta aplicación.</p>
+  {{else}}
+  <h1>No se pudo completar la solicitud</h1>
+  <p>{{.Message}}</p>
+  {{end}}
+  <div class="actions">
+    <a class="btn" href="{{.ProxyPrefix}}/sign_out">Cerrar sesión</a>
+  </div>
+</main>
+</body>
+</html>
+{{end}}

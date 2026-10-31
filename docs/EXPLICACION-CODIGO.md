@@ -23,6 +23,7 @@ Docker Compose describe varios contenedores y cómo se conectan, en un solo arch
 - Todos los servicios quedan en una red interna creada por Compose. Ahí se resuelven por nombre: el proxy llega a la página con `http://web-a:80`. Es un DNS interno de Docker, parecido en idea al Bind9 del TP8.
 
 ### `x-proxy-common` (bloque reutilizable)
+(`volumes: ./proxy-templates:/templates:ro` monta la plantilla `error.html` en los dos proxies; `error.html` usa `{{.StatusCode}}` para cambiar el texto cuando el error es 403.)
 - Las claves que empiezan con `x-` las ignora Compose: sirven para guardar texto reutilizable.
 - `&proxy-common` le pone nombre ("ancla") al bloque; `<<: *proxy-common` en cada proxy lo copia. Así no se repiten las líneas que son iguales para A y B. `&proxy-env` y `<<: *proxy-env` hacen lo mismo con las variables de entorno.
 - `image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0`: imagen del portero con versión fija (si no fijás versión, mañana puede cambiar y romper la demo).
@@ -39,6 +40,8 @@ Docker Compose describe varios contenedores y cómo se conectan, en un solo arch
 | `COOKIE_SECURE: "false"` | Permite la cookie por HTTP. En producción va `true` con HTTPS | Con HTTP el navegador no guarda la cookie y se entra en bucle |
 | `COOKIE_SECRET` | Clave con la que el proxy cifra su cookie de sesión. Debe tener 16, 24 o 32 bytes | No arranca |
 | `SKIP_PROVIDER_BUTTON: "true"` | Salta la pantalla "Sign in with Keycloak" y redirige directo | Aparece un botón extra |
+| `WHITELIST_DOMAINS: ${VM_IP}:8080` | Dominios a los que el proxy deja redirigir con `rd=` (aquí, Keycloak para el logout) | `/oauth2/sign_out?rd=...` rechaza la redirección |
+| `CUSTOM_TEMPLATES_DIR: /templates` | Carpeta con plantillas propias del proxy. Se usa `error.html` para mostrar el 403 en español y con el estilo de las apps | El 403 sale en inglés y sin estilo |
 | `HTTP_ADDRESS: 0.0.0.0:4180` | Escucha en todas las interfaces del contenedor, puerto 4180 | Escucha solo en localhost del contenedor y no se alcanza |
 
 Las comillas en `"*"` y `"true"` son para que YAML no los interprete como otra cosa.
@@ -71,10 +74,16 @@ Declara el volumen nombrado que usa Keycloak.
 Compose reemplaza `${VAR}` con lo que hay en `.env`. Se separa del compose para no subir secretos a git (`.env` está en `.gitignore`; `.env.example` es la plantilla sin valores reales). `VM_IP` cambia si la IP de la VM cambia; `REALM` es el nombre del realm.
 
 ## 4. `apps/a/index.html` y `apps/b/index.html`
-Páginas estáticas mínimas, con color distinto para distinguirlas en pantalla. Enlaces:
-- `/oauth2/userinfo`: endpoint del proxy que muestra los claims del usuario. Sirve para enseñar el contenido del token.
-- `/oauth2/sign_out`: borra la cookie del proxy. No cierra la sesión de Keycloak, y por eso el SSO sigue vivo hasta que la sesión de Keycloak se cierre.
-- Enlace cruzado A↔B: para mostrar el SSO con un clic.
+
+Son dos páginas estáticas casi idénticas. Solo cambian los atributos `data-*` del `<body>` (nombre, puerto de la otra app) y el color de acento. No traen fuentes ni librerías externas: funcionan sin internet. Los colores salen del tema claro de Lumina (fondo `#f8f7f4`, tinta `#131209`; A azul `#1d4ed8`, B rojo `#be123c`). A tiene forma de cuadrado y B de círculo, para distinguirlas aunque no se vean bien los colores.
+
+Cómo muestran quién eres, sin que las apps tengan lógica de login:
+- Al cargar, el JavaScript hace `fetch("/oauth2/userinfo")`. Es del mismo origen: el proxy responde con los datos de la sesión (usuario, correo, `groups`). No se maneja ningún token en la página.
+- Keycloak entrega los roles de realm dentro de `groups` como `role:<nombre>`. El script deja solo los de negocio y descarta los técnicos (`offline_access`, `uma_authorization`, `default-roles-*`, `account:*`).
+- Todo se escribe con `textContent` (nunca `innerHTML`), para que un dato raro no pueda inyectar HTML.
+- Si `userinfo` falla, la página dice "No se pudo leer tu sesión" en vez de quedar vacía.
+- "Ir a App X": el enlace se arma con `location.hostname` y el puerto de la otra app, así no hay IP escrita a mano.
+- "Cerrar sesión": va a `/oauth2/sign_out?rd=<logout de Keycloak>`. El proxy borra su cookie y redirige a Keycloak, que cierra la sesión SSO. Si solo se cerrara la del proxy, entrar de nuevo reautenticaría solo (el SSO sigue vivo). Para que el proxy acepte ese `rd` externo existe `WHITELIST_DOMAINS: ${VM_IP}:8080` en el compose. Keycloak puede mostrar una pantalla de confirmación de cierre.
 
 ## 5. `scripts/token-expirado.sh`
 

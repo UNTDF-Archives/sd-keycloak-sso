@@ -40,6 +40,13 @@ Abrí en tu PC: `http://192.168.56.10:8080` → *Administration Console* → ent
 1. Menú superior izquierdo (dice *master*) → **Create realm**.
 2. Realm name: `untdf` → **Create**.
 
+### 1.b Idioma en español (para que el login y el logout salgan en español)
+
+1. **Realm settings → Localization** → **Internationalization: ON**.
+2. **Supported locales**: `Español` (y `English` si quieren). **Default locale**: `Español` → **Save**.
+
+Sin esto, Keycloak muestra el login y la confirmación de cierre de sesión en inglés. Por API se probó con `internationalizationEnabled`, `supportedLocales` y `defaultLocale`; los nombres exactos de la pantalla son **VERIFICAR**. La pantalla de acceso denegado (403) ya sale en español desde `proxy-templates/error.html`, sin configurar nada.
+
 ## 2. Crear el rol
 
 1. Menú izquierdo **Realm roles** → **Create role**.
@@ -147,6 +154,7 @@ Cada una se reprodujo en la VM. La explicación completa, con el porqué de cada
 3. **Audiencia (`aud`):** el token debe nombrar al cliente que lo recibe (mapper del paso 4.b).
 4. **`/userinfo` pide `scope=openid`.**
 5. **Los JWT no se revocan solos:** viven poco (Access Token Lifespan) para limitar el daño.
+6. **El cierre de sesión no es global:** "Cerrar sesión" en A borra la cookie de A y la sesión de Keycloak, pero B conserva su propia cookie de proxy y sigue abierta hasta que venza (7 días por defecto). Observado en la VM. Para la demo, usar **ventanas de incógnito nuevas** al cambiar de usuario (como dice `DEMO.md`) en vez de depender del botón. Cerrar todas las apps a la vez requiere *back-channel logout* (Keycloak avisa a cada app), fuera del alcance de esta demo; se puede nombrar como trade-off.
 
 Para entender cada una: reprodúzcanlas a propósito. Cambien el `OIDC_ISSUER_URL` del proxy a `http://keycloak:8080/realms/untdf` (trampa 1), o saquen el `COOKIE_NAME` de uno (trampa 2), y lean el síntoma. Luego restauren.
 

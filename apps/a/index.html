@@ -1,8 +1,183 @@
 <!doctype html>
+<html lang="es">
+<head>
 <meta charset="utf-8">
-<title>App A</title>
-<body style="font-family:sans-serif;background:#e8f1ff;text-align:center;padding-top:15vh">
-  <h1>App A</h1>
-  <p>Acceso permitido: cualquier usuario autenticado.</p>
-  <p><a href="/oauth2/userinfo">Ver mis claims</a> · <a href="http://192.168.56.10:4181/">Ir a App B</a> · <a href="/oauth2/sign_out">Salir</a></p>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App A · SSO</title>
+<style>
+  /* Tokens: tema claro "Swiss Bauhaus Chalk" de Lumina. Sin fuentes ni recursos externos. */
+  :root {
+    --bg: #f8f7f4;
+    --panel: #ffffff;
+    --ink: #131209;
+    --muted: #57534e;
+    --line: rgba(19, 18, 9, 0.14);
+    --accent: #1d4ed8;
+    --on-accent: #ffffff;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  body[data-app="b"] { --accent: #be123c; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1rem;
+    line-height: 1.5;
+    border-top: 12px solid var(--accent);
+  }
+  ::selection { background: var(--accent); color: var(--on-accent); }
+
+  main {
+    width: min(100% - 2rem, 56rem);
+    margin-inline: auto;
+    padding-block: clamp(2.5rem, 9vh, 6rem);
+  }
+
+  header { display: flex; align-items: center; gap: clamp(1rem, 3vw, 1.75rem); }
+  .mark {
+    flex: none;
+    width: clamp(2.75rem, 7vw, 4.25rem);
+    aspect-ratio: 1;
+    background: var(--accent);
+  }
+  body[data-app="b"] .mark { border-radius: 50%; }
+  h1 {
+    margin: 0;
+    font-size: clamp(3rem, 10vw, 5.5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    text-wrap: balance;
+  }
+  .rule { margin: 1.25rem 0 0; font-size: 1.125rem; color: var(--muted); max-width: 40ch; }
+  .rule strong { color: var(--ink); font-weight: 600; }
+
+  .panel {
+    margin-top: clamp(2rem, 6vh, 3.5rem);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--ink);
+    padding-left: clamp(1rem, 3vw, 1.75rem); padding-right: clamp(1rem, 3vw, 1.75rem);
+    animation: enter 0.5s var(--ease) both;
+  }
+  dl { margin: 0; }
+  .row {
+    display: grid;
+    grid-template-columns: 8rem 1fr;
+    gap: 0.5rem 1.5rem;
+    align-items: baseline;
+    padding-top: 1.25rem; padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+  dt { font-size: 0.875rem; color: var(--muted); }
+  dd { margin: 0; font-size: clamp(1.25rem, 3vw, 1.625rem); font-weight: 600; overflow-wrap: anywhere; }
+  dd.small { font-size: 1.125rem; font-weight: 500; }
+  .none { color: var(--muted); font-weight: 400; }
+
+  .roles { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
+  .role {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.25rem 0.75rem;
+    border: 1.5px solid var(--ink);
+  }
+  .role.key { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.625rem;
+    min-height: 3rem; padding: 0 1.5rem;
+    font: inherit; font-weight: 600; text-decoration: none;
+    border: 2px solid var(--accent);
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { background: var(--ink); border-color: var(--ink); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn.ghost:hover { background: var(--ink); color: var(--bg); }
+  .btn svg { width: 1.125rem; height: 1.125rem; }
+  .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  .state { margin: 0; padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--muted); }
+
+  @keyframes enter { from { opacity: 0; transform: translateY(0.5rem); } }
+  @media (prefers-reduced-motion: reduce) { .panel { animation: none; } .btn { transition: none; } }
+  @media (max-width: 30rem) { .row { grid-template-columns: 1fr; } .btn { flex: 1 1 100%; justify-content: center; } }
+</style>
+</head>
+<body data-app="a" data-other-name="App B" data-other-port="4181" data-realm="untdf">
+<main>
+  <header>
+    <span class="mark" aria-hidden="true"></span>
+    <h1>App A</h1>
+  </header>
+  <p class="rule">Acceso: <strong>cualquier usuario autenticado</strong>.</p>
+
+  <section class="panel" aria-live="polite" aria-label="Tu sesión">
+    <p class="state" id="state">Leyendo tu sesión…</p>
+    <dl id="session" hidden>
+      <div class="row"><dt>Usuario</dt><dd id="user"></dd></div>
+      <div class="row"><dt>Correo</dt><dd id="email" class="small"></dd></div>
+      <div class="row"><dt>Roles</dt><dd><ul class="roles" id="roles"></ul></dd></div>
+    </dl>
+  </section>
+
+  <nav class="actions" aria-label="Acciones">
+    <a class="btn primary" id="other" href="#">
+      <span id="other-label">Ir a otra app</span>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 10h13M11 4l6 6-6 6"/></svg>
+    </a>
+    <a class="btn ghost" id="logout" href="#">Cerrar sesión</a>
+  </nav>
+</main>
+
+<noscript><p class="state">Esta página necesita JavaScript para mostrar tu sesión.</p></noscript>
+<script>
+  const d = document.body.dataset;
+  const $ = (id) => document.getElementById(id);
+  const origin = location.protocol + "//" + location.hostname;
+
+  $("other").href = origin + ":" + d.otherPort + "/";
+  $("other-label").textContent = "Ir a " + d.otherName;
+  // Cierra la sesión del proxy y luego la de Keycloak (si no, el SSO vuelve a entrar solo).
+  $("logout").href = "/oauth2/sign_out?rd=" + encodeURIComponent(
+    origin + ":8080/realms/" + d.realm + "/protocol/openid-connect/logout");
+
+  // userinfo lista los roles de realm como "role:<nombre>"; se muestran solo los de negocio.
+  const ruido = new Set(["offline_access", "uma_authorization"]);
+  const esNegocio = (r) => !r.includes(":") && !ruido.has(r) && !r.startsWith("default-roles-");
+
+  fetch("/oauth2/userinfo", { headers: { Accept: "application/json" } })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((u) => {
+      $("user").textContent = u.preferredUsername || u.user;
+      $("email").textContent = u.email || "—";
+      const roles = (u.groups || []).filter((g) => g.startsWith("role:")).map((g) => g.slice(5)).filter(esNegocio);
+      if (!roles.length) {
+        const li = document.createElement("li");
+        li.className = "none";
+        li.textContent = "Sin roles de acceso";
+        $("roles").append(li);
+      }
+      roles.forEach((r) => {
+        const li = document.createElement("li");
+        li.className = "role" + (r === "acceso-b" ? " key" : "");
+        li.textContent = r;
+        $("roles").append(li);
+      });
+      $("state").hidden = true;
+      $("session").hidden = false;
+    })
+    .catch(() => { $("state").textContent = "No se pudo leer tu sesión. Recarga la página."; });
+</script>
 </body>
+</html>
