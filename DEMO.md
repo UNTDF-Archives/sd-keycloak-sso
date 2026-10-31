@@ -1,0 +1,15 @@
+# Guion de la demo (5 min máx.)
+
+**Antes de empezar (precargado):** VM encendida, `docker-compose ps` con todo `Up`, imágenes cacheadas, dos ventanas de incógnito cerradas, `.env` listo, un video de respaldo grabado.
+
+| Min | Qué se hace | Qué se dice |
+|---|---|---|
+| 0:00 | Ventana incógnito → `http://192.168.56.10:4180` | "Sin sesión. App A no tiene login propio: nos manda a Keycloak." (mostrar la URL del redirect) |
+| 0:45 | Login `alice` → App A | "AuthN: Keycloak verificó quién somos y devolvió un código; el proxy lo cambió por tokens." |
+| 1:30 | Misma ventana → `http://192.168.56.10:4181` | "App B: entramos sin login. Ese es el SSO: la sesión vive en Keycloak, no en cada app." |
+| 2:00 | `/oauth2/userinfo` en B | "Estos son los claims del token: usuario, roles, emisor, expiración." |
+| 2:30 | Incógnito nueva → login `bob` → App A ok → App B | "AuthZ: bob está autenticado pero no tiene el rol `acceso-b`. App B lo rechaza: 403 Forbidden, "You do not have permission to access this resource"." |
+| 3:30 | Terminal: `./scripts/token-expirado.sh alice` | "Los tokens vencen. Vigente: 200. Vencido: 401. Eso limita el daño si se roban." |
+| 4:30 | Cierre | "Costo: Keycloak es pesado y es punto único de falla. No lo usaríamos para 2 servicios en red privada." |
+
+**Plan B si algo falla:** reproducir el video; `docker-compose restart`; reimportar `realm-untdf.json`.

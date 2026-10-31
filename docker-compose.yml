@@ -1,0 +1,64 @@
+# SSO minimo: Keycloak + 2 apps (A y B) protegidas con oauth2-proxy.
+# Compatible con docker-compose 1.29 (VM sdist0).
+version: "3.8"
+
+x-proxy-common: &proxy-common
+  image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+  restart: unless-stopped   # arranca recien cuando el realm existe (ver GUIA-PASO-A-PASO.md)
+  environment: &proxy-env
+    OAUTH2_PROXY_PROVIDER: keycloak-oidc
+    OAUTH2_PROXY_OIDC_ISSUER_URL: http://${VM_IP}:8080/realms/${REALM}
+    OAUTH2_PROXY_SCOPE: openid email profile
+    OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+    OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256      # PKCE
+    OAUTH2_PROXY_COOKIE_SECURE: "false"           # demo en HTTP
+    OAUTH2_PROXY_COOKIE_SECRET: "0123456789abcdef0123456789abcdef"  # 32 bytes, solo demo
+    OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"     # redirige directo a Keycloak
+    OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+      KC_HOSTNAME: http://${VM_IP}:8080   # el navegador y los contenedores ven el MISMO issuer
+    ports:
+      - "8080:8080"
+    volumes:
+      - kc-data:/opt/keycloak/data
+
+  web-a:
+    image: nginx:alpine
+    volumes: ["./apps/a:/usr/share/nginx/html:ro"]
+
+  web-b:
+    image: nginx:alpine
+    volumes: ["./apps/b:/usr/share/nginx/html:ro"]
+
+  proxy-a:
+    <<: *proxy-common
+    ports: ["4180:4180"]
+    environment:
+      <<: *proxy-env
+      OAUTH2_PROXY_CLIENT_ID: app-a
+      OAUTH2_PROXY_CLIENT_SECRET: ${APP_A_SECRET}
+      OAUTH2_PROXY_REDIRECT_URL: http://${VM_IP}:4180/oauth2/callback
+      OAUTH2_PROXY_COOKIE_NAME: _proxy_a        # distinto por app: las cookies no se aislan por puerto
+      OAUTH2_PROXY_UPSTREAMS: http://web-a:80
+
+  proxy-b:
+    <<: *proxy-common
+    ports: ["4181:4180"]
+    environment:
+      <<: *proxy-env
+      OAUTH2_PROXY_CLIENT_ID: app-b
+      OAUTH2_PROXY_CLIENT_SECRET: ${APP_B_SECRET}
+      OAUTH2_PROXY_REDIRECT_URL: http://${VM_IP}:4181/oauth2/callback
+      OAUTH2_PROXY_COOKIE_NAME: _proxy_b
+      OAUTH2_PROXY_UPSTREAMS: http://web-b:80
+      OAUTH2_PROXY_ALLOWED_ROLES: acceso-b      # AuthZ: solo con este rol
+
+volumes:
+  kc-data:
