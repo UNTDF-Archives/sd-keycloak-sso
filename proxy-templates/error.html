@@ -5,35 +5,62 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.StatusCode}} · Acceso</title>
 <style>
-  :root { --bg:#f8f7f4; --ink:#131209; --muted:#57534e; --accent:#be123c; --line:rgba(19,18,9,.14);
-    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  /* Tokens: tema claro "Swiss Bauhaus Chalk", igual que las apps. Acento de App B (el 403 sale de ahí). */
+  :root { --bg:#f8f7f4; --panel:#fff; --ink:#131209; --muted:#57534e; --line:rgba(19,18,9,.14);
+    --accent:#be123c; --on-accent:#fff;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1); }
   * { box-sizing: border-box; }
-  body { margin:0; min-height:100dvh; background:var(--bg); color:var(--ink); font-family:var(--font); line-height:1.5; border-top:12px solid var(--accent); }
-  main { width:min(100% - 2rem, 40rem); margin-inline:auto; padding-top:clamp(2.5rem,12vh,7rem); }
-  .code { font-size:clamp(4rem,16vw,8rem); font-weight:800; letter-spacing:-.03em; line-height:1; margin:0; color:var(--accent); }
-  h1 { margin:1rem 0 .5rem; font-size:clamp(1.75rem,5vw,2.5rem); font-weight:800; letter-spacing:-.02em; text-wrap:balance; }
-  p { margin:0; font-size:1.125rem; color:var(--muted); max-width:38ch; }
-  .actions { display:flex; flex-wrap:wrap; gap:.75rem; margin-top:2rem; }
-  .btn { display:inline-flex; align-items:center; min-height:3rem; padding:0 1.5rem; font:inherit; font-weight:600; text-decoration:none; border:2px solid var(--ink); color:var(--ink); }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin:0; min-height:100dvh; background:var(--bg); color:var(--ink); font-family:var(--font); font-size:1rem; line-height:1.5; border-top:12px solid var(--accent); }
+  ::selection { background:var(--accent); color:var(--on-accent); }
+  main { width:min(100% - 2rem, 56rem); margin-inline:auto; padding-block:clamp(2.5rem,9vh,6rem); }
+  header { display:flex; align-items:center; gap:clamp(1rem,3vw,1.75rem); }
+  .mark { flex:none; width:clamp(2.75rem,7vw,4.25rem); aspect-ratio:1; background:var(--accent); border-radius:50%; }
+  h1 { margin:0; font-size:clamp(3rem,10vw,5.5rem); font-weight:800; letter-spacing:-.03em; line-height:1; }
+  .rule { margin:1.25rem 0 0; font-size:1.125rem; color:var(--muted); max-width:40ch; }
+  .rule strong { color:var(--ink); font-weight:600; }
+  .panel { margin-top:clamp(2rem,6vh,3.5rem); background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--ink);
+    padding:1.25rem clamp(1rem,3vw,1.75rem); animation:enter .5s var(--ease) both; }
+  .panel h2 { margin:0 0 .5rem; font-size:clamp(1.25rem,3vw,1.625rem); font-weight:600; }
+  .panel p { margin:0; color:var(--muted); }
+  .actions { display:flex; flex-wrap:wrap; gap:.75rem; margin-top:1.5rem; }
+  .btn { display:inline-flex; align-items:center; min-height:3rem; padding:0 1.5rem; font:inherit; font-weight:600; text-decoration:none;
+    background:transparent; color:var(--ink); border:2px solid var(--ink); transition:background-color .15s,color .15s; }
   .btn:hover { background:var(--ink); color:var(--bg); }
   .btn:focus-visible { outline:3px solid var(--ink); outline-offset:3px; }
-  ::selection { background:var(--accent); color:#fff; }
+  @keyframes enter { from { opacity:0; transform:translateY(.5rem); } }
+  @media (prefers-reduced-motion: reduce) { .panel { animation:none; } .btn { transition:none; } }
+  @media (max-width:30rem) { .btn { flex:1 1 100%; justify-content:center; } }
 </style>
 </head>
 <body>
 <main>
-  <p class="code" aria-hidden="true">{{.StatusCode}}</p>
+  <header>
+    <span class="mark" aria-hidden="true"></span>
+    <h1>{{.StatusCode}}</h1>
+  </header>
   {{if eq .StatusCode 403}}
-  <h1>Acceso denegado</h1>
-  <p>Iniciaste sesión, pero tu usuario no tiene el rol necesario para esta aplicación.</p>
+  <p class="rule">Acceso: <strong>solo con el rol necesario</strong>.</p>
+  <section class="panel" aria-label="Detalle">
+    <h2>Acceso denegado</h2>
+    <p>Iniciaste sesión, pero tu usuario no tiene el rol necesario para esta aplicación.</p>
+  </section>
   {{else}}
-  <h1>No se pudo completar la solicitud</h1>
-  <p>{{.Message}}</p>
+  <section class="panel" aria-label="Detalle">
+    <h2>No se pudo completar la solicitud</h2>
+    <p>{{.Message}}</p>
+  </section>
   {{end}}
-  <div class="actions">
+  <nav class="actions" aria-label="Acciones">
+    {{if eq .StatusCode 403}}<a class="btn" id="app-a" href="#">Ir a App A</a>{{end}}
     <a class="btn" href="{{.ProxyPrefix}}/sign_out">Cerrar sesión</a>
-  </div>
+  </nav>
 </main>
+{{if eq .StatusCode 403}}<script>
+// App A está en el puerto 4180 del mismo host.
+document.getElementById("app-a").href = location.protocol + "//" + location.hostname + ":4180/";
+</script>{{end}}
 </body>
 </html>
 {{end}}
