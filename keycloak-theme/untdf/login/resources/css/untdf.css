@@ -1,0 +1,68 @@
+/* Tema de login UNTDF: mismas fichas "Swiss Bauhaus Chalk" que apps/a y apps/b. Sin recursos externos. */
+:root {
+  --bg: #f8f7f4; --panel: #fff; --ink: #131209; --muted: #57534e;
+  --line: rgba(19, 18, 9, 0.14); --accent: #131209; --on-accent: #fff; --err: #be123c;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html.login-pf body, .login-pf body, body {
+  background: var(--bg) !important;
+  color: var(--ink);
+  font-family: var(--font);
+  border-top: 12px solid var(--accent);
+  min-height: 100vh;
+}
+.login-pf-page { width: min(100% - 2rem, 32rem); margin-inline: auto; padding-top: clamp(1.5rem, 6vh, 4rem); }
+.login-pf-page .card-pf { max-width: none; width: 100%; }
+.login-pf-header { text-align: left; }
+.pf-c-form__label { display: block; margin-bottom: 0.375rem; }
+
+/* Cabecera: marca cuadrada + nombre del realm, sin logo de Keycloak */
+#kc-header { background: none; }
+#kc-header-wrapper {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0 0 1.25rem; text-align: left;
+  font-size: clamp(1.75rem, 6vw, 2.5rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+  text-transform: none; color: var(--ink);
+}
+#kc-header-wrapper::before { content: ""; flex: none; width: 2.75rem; aspect-ratio: 1; background: var(--accent); }
+div.kc-logo-text { background-image: none !important; height: auto; width: auto; }
+div.kc-logo-text span { visibility: visible; position: static; }
+
+/* Tarjeta */
+.card-pf, .login-pf-page .card-pf {
+  background: var(--panel);
+  border: 1px solid var(--line); border-top: 3px solid var(--ink); border-radius: 0;
+  box-shadow: none; padding: clamp(1rem, 4vw, 1.75rem); margin: 0;
+}
+h1#kc-page-title { text-align: left; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 1rem; }
+.pf-c-form__label-text, label { color: var(--muted); font-size: 0.875rem; font-weight: 500; }
+.subtitle, p.instruction, #kc-info-message p { color: var(--muted); }
+
+/* Campos */
+input.pf-c-form-control, .pf-c-form-control, input[type=text], input[type=password], input[type=email] {
+  min-height: 3rem; border-radius: 0; border: 1.5px solid var(--ink); background-color: #fff; color: var(--ink);
+  font: inherit; box-shadow: none;
+}
+.pf-c-form-control:focus, input:focus { outline: 3px solid var(--ink); outline-offset: 2px; border-color: var(--ink); }
+
+/* Botones */
+.pf-c-button.pf-m-primary, .login-pf-page .btn-primary, input[type=submit].pf-m-primary {
+  background: var(--accent); border: 2px solid var(--accent); border-radius: 0; color: var(--on-accent);
+  min-height: 3rem; font: inherit; font-weight: 600; transition: background-color .15s, color .15s;
+}
+.pf-c-button.pf-m-primary:hover, .login-pf-page .btn-primary:hover { background: #3b3a33; border-color: #3b3a33; color: #fff; }
+.pf-c-button.pf-m-primary:focus-visible, .pf-c-button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.btn-default, .pf-c-button.btn-default {
+  background: transparent; color: var(--ink); border: 2px solid var(--ink); border-radius: 0; min-height: 3rem; font-weight: 600;
+}
+.btn-default:hover { background: var(--ink); color: var(--bg); }
+
+/* Enlaces y avisos */
+a, .login-pf a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+a:hover, .login-pf a:hover { color: var(--accent); }
+.pf-c-alert, .alert { border-radius: 0; box-shadow: none; }
+.pf-c-alert.pf-m-danger, .alert-error { border: 1px solid var(--err); border-left: 6px solid var(--err); background: #fff; }
+.pf-c-alert__title, .kc-feedback-text { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

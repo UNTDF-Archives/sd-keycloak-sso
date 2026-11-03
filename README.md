@@ -6,7 +6,8 @@ Demo del Grupo 2 de Sistemas Distribuidos (UNTDF). Un login único (SSO) para do
 - `docs/EXPLICACION-CODIGO.md`: explicación línea por línea del compose, el script y el flujo.
 - `DEMO.md`: guion de los 5 minutos.
 - `docker-compose.yml`: Keycloak, 2 apps estáticas y 2 `oauth2-proxy`.
-- `scripts/token-expirado.sh`: muestra la falla del token vencido.
+- `keycloak-theme/untdf/login/`: tema de login con el estilo de las apps.
+- Panel "Prueba: token vencido" en App A y App B, y `scripts/token-expirado.sh` (versión por consola): muestran la falla del token vencido.
 - La teoría está en Obsidian: `Sistemas Distribuidos/Grupo2-AuthN-AuthZ/Guia-Teoria.md`.
 
 Los usuarios y secretos son de prueba. `.env` no se sube.

@@ -9,7 +9,7 @@
 | 1:30 | Misma ventana → `http://192.168.56.10:4181` | "App B: entramos sin login. Ese es el SSO: la sesión vive en Keycloak, no en cada app." |
 | 2:00 | `/oauth2/userinfo` en B | "Estos son los claims del token: usuario, roles, emisor, expiración." |
 | 2:30 | Incógnito nueva → login `bob` → App A ok → App B | "AuthZ: bob está autenticado pero no tiene el rol `acceso-b`. App B lo rechaza: 403 Forbidden, "You do not have permission to access this resource"." |
-| 3:30 | Terminal: `./scripts/token-expirado.sh alice` | "Los tokens vencen. Vigente: 200. Vencido: 401. Eso limita el daño si se roban." |
+| 3:30 | App A o B → panel "Prueba: token vencido" → escribir la contraseña de `alice` → **Probar token vencido** (alternativa en terminal: `./scripts/token-expirado.sh alice`) | "Los tokens vencen. Vigente: 200. Vencido: 401. Eso limita el daño si se roban." |
 | 4:30 | Cierre | "Costo: Keycloak es pesado y es punto único de falla. No lo usaríamos para 2 servicios en red privada." |
 
 **Plan B si algo falla:** reproducir el video; `docker-compose restart`; reimportar `realm-untdf.json`.
