@@ -123,6 +123,7 @@ Y en `app-a` y `app-b` dejar el *Access Token Lifespan* en el valor del realm (6
 **5.c Cliente `cli-test` (solo para el script de consola `scripts/token-expirado.sh`).** **Clients → Create client**: Client ID `cli-test`, **Client authentication: OFF** (público), marcar **Direct access grants**, desmarcar Standard flow → Save. (Direct access grants es el flujo "password": solo para esa prueba. No se usa en apps reales.)
 
 **Cómo funciona la prueba en las páginas.** El botón **Probar token vencido** de App A y App B lleva a `http://192.168.56.10:4182` (página `apps/corto`, detrás de `proxy-corto`). Se entra por SSO, sin contraseña, y llega un token real de 15 s. La página muestra "Token vence en N s" leyendo el vencimiento del propio token (el proxy lo expone en `/oauth2/auth` con `SET_XAUTHREQUEST` y `PASS_ACCESS_TOKEN`; solo para la demo). A los 15 s el proxy responde 401 y aparece la pantalla "Token vencido". **Volver a entrar** no pide contraseña (Keycloak recuerda la sesión SSO) y emite un token nuevo de 15 s.
+Bajo la cuenta regresiva, el panel **Así es el token (JWT)** muestra el token real dividido en cabecera, claims y firma, con algoritmo (`RS256`), emisor, usuario, audiencia, roles y horas de emisión y vencimiento. Sirve para el subtema de claims, firma y validación del teórico.
 
 ## 6. Levantar los proxies
 
@@ -147,15 +148,25 @@ Si el log dice `failed to discover OIDC configuration`, revisar que el realm se 
 `kc.sh export` **no funciona con el servidor encendido** (la base H2 queda bloqueada). Hay que detener Keycloak y exportar con un contenedor temporal:
 
 ```bash
+mkdir -p backup && chmod 777 backup            # el contenedor escribe como otro usuario
 docker-compose stop keycloak
-docker-compose run --rm keycloak export --realm untdf --file /opt/keycloak/data/realm-untdf.json
+docker-compose run --rm --no-deps -v $PWD/backup:/backup keycloak export --realm untdf --file /backup/realm-untdf.json
 docker-compose up -d keycloak
-docker-compose cp keycloak:/opt/keycloak/data/realm-untdf.json ./realm-untdf.json
 ```
 
-Alternativa desde la interfaz: **Realm settings → Action → Partial export** (exporta roles, clientes y configuración, **no** usuarios ni contraseñas). **VERIFICAR** cuál de las dos prefieren; la de la consola es la más simple.
+Quedan en `backup/realm-untdf.json` el realm `untdf`, el rol, los usuarios con sus contraseñas, los clientes (`app-a`, `app-b`, `app-corto`, `cli-test`) y el tema. Se probó.
+**Ojo:** el archivo trae los secretos de los clientes y los hashes de las contraseñas. Por eso `backup/` está en `.gitignore`: no se sube a git. Si se corre el export dentro de un script enviado por `ssh ... bash -s`, agregar `-T` a `docker-compose run`: sin eso consume el resto del script por la entrada estándar.
 
-Para reimportar al arrancar: montar el archivo en `/opt/keycloak/data/import/` y usar `command: start-dev --import-realm`.
+Alternativa desde la interfaz: **Realm settings → Action → Partial export** (exporta roles, clientes y configuración, **no** usuarios ni contraseñas). La de la consola es la que se probó y la más simple.
+
+**Reimportar** (VM nueva o realm perdido). Comprobar primero que el archivo sirve, en un contenedor descartable que no toca los datos reales:
+
+```bash
+docker run --rm -v $PWD/backup:/b:ro quay.io/keycloak/keycloak:26.0.7 import --file /b/realm-untdf.json
+# debe terminar con: Realm 'untdf' imported
+```
+
+Para restaurarlo de verdad: con Keycloak parado, `docker-compose run --rm --no-deps -v $PWD/backup:/backup keycloak import --file /backup/realm-untdf.json` y después `docker-compose up -d`. Los secretos de los clientes vienen en el archivo: hay que copiarlos al `.env` (`APP_A_SECRET`, `APP_B_SECRET`, `APP_CORTO_SECRET`) o, en Keycloak, regenerarlos y actualizar el `.env`.
 
 ## Problemas típicos
 

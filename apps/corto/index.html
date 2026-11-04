@@ -118,6 +118,16 @@
   button.btn { font: inherit; cursor: pointer; background: transparent; }
   button.btn.primary { background: var(--accent); }
 
+  .jwt { margin-top: 1.5rem; padding-block: 1.5rem; }
+  .jwt h2 { margin: 0 0 0.25rem; font-size: 1.25rem; font-weight: 700; }
+  .jwt p { margin: 0.5rem 0 0; color: var(--muted); }
+  .tok { margin: 1rem 0 0; padding: 0.75rem; max-height: 7.5rem; overflow: auto; background: var(--bg); border: 1px solid var(--line);
+         font-family: var(--mono); font-size: 0.75rem; line-height: 1.4; overflow-wrap: anywhere; color: var(--ink); }
+  .tok .h { color: var(--accent); } .tok .f { color: var(--muted); }
+  .jwt .row { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  .jwt dd { font-size: 1rem; font-weight: 500; font-family: var(--mono); }
+  .jwt a { color: var(--ink); }
+
   @keyframes enter { from { opacity: 0; transform: translateY(0.5rem); } }
   @media (prefers-reduced-motion: reduce) { .panel { animation: none; } .btn { transition: none; } }
   @media (max-width: 30rem) { .row { grid-template-columns: 1fr; } .btn { flex: 1 1 100%; justify-content: center; } }
@@ -139,6 +149,21 @@
       <div class="row"><dt>Roles</dt><dd><ul class="roles" id="roles"></ul></dd></div>
       <div class="row"><dt>Token vence en</dt><dd id="exp" class="small">…</dd></div>
     </dl>
+  </section>
+
+  <section class="panel jwt" id="jwt" aria-label="Token decodificado" hidden>
+    <h2>Así es el token (JWT)</h2>
+    <p>Tres partes separadas por puntos: <span style="color:var(--accent);font-weight:600">cabecera</span>, <strong>contenido (claims)</strong> y <span style="font-weight:600;color:var(--muted)">firma</span>.</p>
+    <p class="tok" id="tok"></p>
+    <dl>
+      <div class="row"><dt>Algoritmo</dt><dd id="j-alg"></dd></div>
+      <div class="row"><dt>Emisor (iss)</dt><dd id="j-iss"></dd></div>
+      <div class="row"><dt>Usuario</dt><dd id="j-user"></dd></div>
+      <div class="row"><dt>Para quién (aud)</dt><dd id="j-aud"></dd></div>
+      <div class="row"><dt>Roles</dt><dd id="j-roles"></dd></div>
+      <div class="row"><dt>Emitido / vence</dt><dd id="j-time"></dd></div>
+    </dl>
+    <p>La <strong>firma</strong> la calculó Keycloak con su clave privada. Cualquier servicio la comprueba con la <a id="j-certs" href="#" target="_blank" rel="noopener">clave pública</a> sin volver a preguntarle a Keycloak: por eso un JWT se valida solo. Si alguien cambia un carácter del contenido, la firma ya no coincide y el token se rechaza. Acá el proxy ya la validó al entrar.</p>
   </section>
 
   <nav class="actions" aria-label="Acciones">
@@ -219,6 +244,28 @@
 
   // Token real de la sesion: el proxy lo expone en /oauth2/auth (PASS_ACCESS_TOKEN + SET_XAUTHREQUEST, solo demo).
   // Cuando vence, /oauth2/auth responde 401 y se muestra la pantalla de error. No se recarga sola.
+  // Decodifica y muestra el JWT. Todo con textContent (nunca innerHTML).
+  const b64json = (b) => JSON.parse(atob(b.replace(/-/g, "+").replace(/_/g, "/")));
+  const hora = (seg) => new Date(seg * 1000).toLocaleTimeString("es-AR");
+  let ultimo = "";
+  const mostrarJwt = (t) => {
+    const [h, c, f] = t.split(".");
+    const hd = b64json(h), cl = b64json(c);
+    const tok = $("tok"); tok.textContent = "";
+    [[h, "h"], [c, ""], [f, "f"]].forEach(([txt, cls], i) => {
+      if (i) tok.append(".");
+      const sp = document.createElement("span"); sp.className = cls; sp.textContent = txt; tok.append(sp);
+    });
+    $("j-alg").textContent = hd.alg + " · kid " + String(hd.kid || "").slice(0, 8) + "…";
+    $("j-iss").textContent = cl.iss;
+    $("j-user").textContent = cl.preferred_username || cl.sub;
+    $("j-aud").textContent = [].concat(cl.aud || []).join(", ") + " (azp " + cl.azp + ")";
+    $("j-roles").textContent = ((cl.realm_access || {}).roles || []).filter(esNegocio).join(", ") || "sin roles de acceso";
+    $("j-time").textContent = hora(cl.iat) + " → " + hora(cl.exp) + " (" + (cl.exp - cl.iat) + " s)";
+    $("j-certs").href = origin + ":8080/realms/" + d.realm + "/protocol/openid-connect/certs";
+    $("jwt").hidden = false;
+  };
+
   let timer;
   const vencido = () => { clearInterval(timer); $("vencido").hidden = false; $("reentrar").focus(); };
   const poll = async () => {
@@ -227,9 +274,10 @@
       if (r.status === 401) return vencido();
       const t = r.headers.get("X-Auth-Request-Access-Token");
       if (!t) return;
-      const { exp } = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const { exp } = b64json(t.split(".")[1]);
       const ahora = Date.parse(r.headers.get("Date")) / 1000;   // reloj del servidor, no del navegador
       $("exp").textContent = Math.max(0, Math.round(exp - ahora)) + " s";
+      if (t !== ultimo) { ultimo = t; mostrarJwt(t); }
     } catch (e) { /* red caida: se reintenta */ }
   };
   timer = setInterval(poll, 1000);

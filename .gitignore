@@ -4,3 +4,6 @@
 .projectmem/watch.pid
 .projectmem/watch.log
 .projectmem/structure.json
+
+# respaldo del realm: trae secretos de clientes y hashes de contraseñas
+backup/

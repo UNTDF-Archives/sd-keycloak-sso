@@ -54,7 +54,7 @@ Usuarios de prueba del realm `untdf` (los de la VM actual):
 2. Abrir B en la misma ventana: entra **sin pedir login** (SSO).
 3. **Cerrar sesión** en B (confirmar en Keycloak): A, que estaba abierta, muestra en 1–2 s **Sesión cerrada**; **Volver a entrar** pide login. Repetir al revés, cerrando en A.
 4. Entrar como `bob`: A funciona, B muestra la pantalla de acceso denegado (403).
-5. Botón **Probar token vencido**: aparece "Token vence en N s" y a los 15 s sale la pantalla **Token vencido**. **Volver a entrar** no pide contraseña (la sesión SSO sigue viva) y da un token nuevo.
+5. Botón **Probar token vencido**: aparece "Token vence en N s", debajo el panel **Así es el token (JWT)** (cabecera, claims, firma) y a los 15 s sale la pantalla **Token vencido**. **Volver a entrar** no pide contraseña (la sesión SSO sigue viva) y da un token nuevo.
 6. Por consola, desde tu PC: `./scripts/token-expirado.sh alice` (necesita un `.env` local con `VM_IP` y `REALM`).
 7. Todo lo anterior, automático, con Chromium headless (sin instalar nada; Node 22+): `node scripts/e2e.mjs capturas`. Imprime `OK` o `FALLA` por paso, termina con `TODO OK` y guarda capturas en esa carpeta. Usa los usuarios `alice` y `bob` de la tabla de arriba y tarda unos 2 minutos.
 
@@ -79,6 +79,28 @@ cd ~ && rm -rf ~/sd-keycloak-sso
 
 Para que **no** se vuelvan a levantar al prender la VM: los `oauth2-proxy` tienen `restart: unless-stopped`, así que Docker los reinicia al arrancar **salvo que se hayan detenido a mano**. Por eso conviene terminar siempre con `docker-compose stop` (o `down`). Keycloak y las webs no tienen política de reinicio y no arrancan solos.
 
-### 5. Si se perdió el realm o es una VM nueva
+### 5. Respaldo del realm
+
+Para no tener que reconfigurar todo si algo falla, se exporta el realm (usuarios, roles, clientes, tema) a `backup/realm-untdf.json`. **No está en git** (trae secretos y hashes); guardarlo aparte. En la VM, dentro de `~/sd-keycloak-sso`:
+
+```bash
+# Exportar (para Keycloak unos segundos)
+mkdir -p backup && chmod 777 backup
+docker-compose stop keycloak
+docker-compose run --rm --no-deps -v $PWD/backup:/backup keycloak export --realm untdf --file /backup/realm-untdf.json
+docker-compose up -d keycloak
+
+# Comprobar que el archivo sirve (contenedor descartable, no toca los datos): debe decir "Realm 'untdf' imported"
+docker run --rm -v $PWD/backup:/b:ro quay.io/keycloak/keycloak:26.0.7 import --file /b/realm-untdf.json
+
+# Restaurar de verdad (con Keycloak parado)
+docker-compose stop keycloak
+docker-compose run --rm --no-deps -v $PWD/backup:/backup keycloak import --file /backup/realm-untdf.json
+docker-compose up -d
+```
+
+Tras restaurar en una VM nueva, copiar los secretos de los clientes al `.env` (`APP_A_SECRET`, `APP_B_SECRET`, `APP_CORTO_SECRET`).
+
+### 6. Si se perdió el realm y no hay respaldo, o es una VM nueva
 
 Seguir `docs/GUIA-PASO-A-PASO.md` desde el paso 0: crea el `.env`, el realm `untdf`, el rol, los usuarios y los clientes `app-a`, `app-b` y `app-corto`. Los secretos de cada cliente van en el `.env` de la VM (`APP_A_SECRET`, `APP_B_SECRET`, `APP_CORTO_SECRET`).
