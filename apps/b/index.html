@@ -109,17 +109,13 @@
 
   .state { margin: 0; padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--muted); }
 
-  .demo { padding-block: 1.5rem; }
-  .demo h2 { margin: 0 0 0.25rem; font-size: 1.25rem; font-weight: 700; }
-  .demo .state { padding: 0; }
-  .demo form { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1rem; }
-  .demo input { flex: 1 1 10rem; min-height: 3rem; padding: 0 0.875rem; font: inherit; border: 1.5px solid var(--ink); background: #fff; color: var(--ink); border-radius: 0; }
-  .demo input:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-  .demo button.btn { cursor: pointer; }
-  .demo button.btn:disabled { opacity: 0.5; cursor: default; }
-  #tk-out { margin-top: 1rem; font-family: var(--mono); color: var(--ink); }
-  #tk-out.ok { border-left: 6px solid #15803d; padding-left: 0.75rem; }
-  #tk-out.dead { border-left: 6px solid #be123c; padding-left: 0.75rem; }
+  .overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 1rem; background: rgba(19, 18, 9, 0.6); }
+  .overlay[hidden] { display: none; }
+  .overlay .panel { margin: 0; max-width: 34rem; padding: 1.5rem clamp(1rem, 3vw, 1.75rem); border-top-color: var(--accent); border-top-width: 6px; }
+  .overlay h2 { margin: 0 0 0.5rem; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
+  .overlay p { margin: 0; color: var(--muted); }
+  button.btn { font: inherit; cursor: pointer; background: transparent; }
+  button.btn.primary { background: var(--accent); }
 
   @keyframes enter { from { opacity: 0; transform: translateY(0.5rem); } }
   @media (prefers-reduced-motion: reduce) { .panel { animation: none; } .btn { transition: none; } }
@@ -148,20 +144,21 @@
       <span id="other-label">Ir a otra app</span>
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 10h13M11 4l6 6-6 6"/></svg>
     </a>
+    <a class="btn ghost" id="corto" href="#">Probar token vencido</a>
     <a class="btn ghost" id="logout" href="#">Cerrar sesión</a>
   </nav>
 
-  <section class="panel demo" aria-label="Prueba de token vencido">
-    <h2>Prueba: token vencido</h2>
-    <p class="state">Pide un token JWT con el cliente de pruebas <code>cli-test</code> y lo usa contra Keycloak hasta que vence. Solo para la demo.</p>
-    <form id="tk-form">
-      <input id="tk-user" value="alice" aria-label="Usuario" autocomplete="username" required>
-      <input id="tk-pass" type="password" placeholder="Contraseña" aria-label="Contraseña" autocomplete="current-password" required>
-      <button class="btn primary" id="tk-btn" type="submit">Probar token vencido</button>
-    </form>
-    <p class="state" id="tk-out" aria-live="polite" hidden></p>
-  </section>
 </main>
+<div class="overlay" id="cerrada" role="alertdialog" aria-modal="true" aria-labelledby="cerrada-t" hidden>
+  <div class="panel">
+    <h2 id="cerrada-t">Sesión cerrada</h2>
+    <p>Cerraste sesión en la otra app, así que esta sesión también se cerró. Para seguir hay que volver a entrar.</p>
+    <div class="actions">
+      <button class="btn primary" id="reentrar" type="button">Volver a entrar</button>
+    </div>
+  </div>
+</div>
+
 
 <noscript><p class="state">Esta página necesita JavaScript para mostrar tu sesión.</p></noscript>
 <script>
@@ -170,6 +167,7 @@
   const origin = location.protocol + "//" + location.hostname;
 
   $("other").href = origin + ":" + d.otherPort + "/";
+  $("corto").href = origin + ":4182/";
   $("other-label").textContent = "Ir a " + d.otherName;
   // Cierra la sesión del proxy y luego la de Keycloak (si no, el SSO vuelve a entrar solo).
   // Keycloak vuelve a esta app al terminar (post_logout_redirect_uri) y pide login de nuevo.
@@ -177,41 +175,18 @@
     origin + ":8080/realms/" + d.realm + "/protocol/openid-connect/logout" +
     "?client_id=app-" + d.app + "&post_logout_redirect_uri=" + encodeURIComponent(location.origin + "/"));
 
-  // Si la sesión murió (logout en la otra app), recarga sola: el proxy redirige al login.
-  setInterval(() => {
-    fetch("/oauth2/auth", { cache: "no-store" }).then((r) => { if (r.status === 401) location.reload(); });
-  }, 2000);
-
-  // Demo de token vencido: token propio (cli-test, flujo password) que se usa cada segundo hasta el 401.
-  const oidc = origin + ":8080/realms/" + d.realm + "/protocol/openid-connect";
-  let tkTimer;
-  $("tk-form").addEventListener("submit", async (e) => {
+  // Logout global: antes de ir a Keycloak, cierra tambien la sesion del proxy de la otra app.
+  // Su cookie es de este mismo host (otro puerto), asi que el navegador la envia. rd=/oauth2/auth hace que el
+  // sign_out termine en un 401 y no en el login de Keycloak (que, con el SSO vivo, volveria a loguear a la otra app).
+  // No sirve redirect:"manual" con no-cors: Chromium lo rechaza (Failed to fetch) y la cookie no se borra.
+  $("logout").addEventListener("click", async (e) => {
     e.preventDefault();
-    clearInterval(tkTimer);
-    const out = $("tk-out"), btn = $("tk-btn");
-    const show = (txt, cls) => { out.hidden = false; out.textContent = txt; out.className = "state " + (cls || ""); };
-    btn.disabled = true;
-    show("Pidiendo token…");
-    try {
-      const r = await fetch(oidc + "/token", { method: "POST", body: new URLSearchParams({
-        grant_type: "password", client_id: "cli-test", scope: "openid",
-        username: $("tk-user").value, password: $("tk-pass").value }) });
-      if (!r.ok) throw new Error("usuario o contraseña incorrectos");
-      const { access_token: tk } = await r.json();
-      const { exp } = JSON.parse(atob(tk.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-      const probar = async () => {
-        const left = Math.max(0, Math.round(exp - Date.now() / 1000));
-        const u = await fetch(oidc + "/userinfo", { headers: { Authorization: "Bearer " + tk } });
-        if (u.ok) { show("Token vigente · HTTP 200 · vence en " + left + " s", "ok"); return; }
-        show("Token vencido · HTTP " + u.status + " · Keycloak ya no lo acepta", "dead");
-        clearInterval(tkTimer); btn.disabled = false;
-      };
-      await probar();
-      tkTimer = setInterval(probar, 1000);
-    } catch (err) {
-      show("No se pudo probar: " + err.message, "dead");
-      btn.disabled = false;
-    }
+    const destino = $("logout").href;
+    await Promise.race([
+      fetch(origin + ":" + d.otherPort + "/oauth2/sign_out?rd=%2Foauth2%2Fauth", { mode: "no-cors", credentials: "include" }).catch(() => {}),
+      new Promise((r) => setTimeout(r, 1000)),
+    ]);
+    location.href = destino;
   });
 
   // userinfo lista los roles de realm como "role:<nombre>"; se muestran solo los de negocio.
@@ -240,6 +215,18 @@
       $("session").hidden = false;
     })
     .catch(() => { $("state").textContent = "No se pudo leer tu sesión. Recarga la página."; });
+
+  // Si la sesión murió (logout en la otra app), muestra aviso. No recarga sola: Keycloak todavía puede tener
+  // el SSO vivo (falta confirmar su logout) y la página se volvería a loguear en silencio.
+  const vigilar = setInterval(() => {
+    fetch("/oauth2/auth", { cache: "no-store" }).then((r) => {
+      if (r.status !== 401) return;
+      clearInterval(vigilar);
+      $("cerrada").hidden = false;
+      $("reentrar").focus();
+    });
+  }, 1000);
+  $("reentrar").addEventListener("click", () => location.reload());
 </script>
 </body>
 </html>

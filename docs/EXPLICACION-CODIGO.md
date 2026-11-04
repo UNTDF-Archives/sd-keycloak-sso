@@ -41,7 +41,7 @@ Docker Compose describe varios contenedores y cómo se conectan, en un solo arch
 | `COOKIE_SECRET` | Clave con la que el proxy cifra su cookie de sesión. Debe tener 16, 24 o 32 bytes | No arranca |
 | `SKIP_PROVIDER_BUTTON: "true"` | Salta la pantalla "Sign in with Keycloak" y redirige directo | Aparece un botón extra |
 | `WHITELIST_DOMAINS: ${VM_IP}:8080` | Dominios a los que el proxy deja redirigir con `rd=` (aquí, Keycloak para el logout) | `/oauth2/sign_out?rd=...` rechaza la redirección |
-| `COOKIE_REFRESH: 2s` | Cada 2 s el proxy renueva la sesión con el refresh token. Si Keycloak ya cerró esa sesión (logout en la otra app), la renovación falla y el proxy pide login de nuevo | La sesión del proxy sigue válida hasta que vence la cookie (7 días) aunque se cierre en Keycloak |
+| `COOKIE_REFRESH: 30s` | Cada 30 s el proxy renueva la sesión con el refresh token, así la sesión no se corta cuando vence el access token (60 s). Si Keycloak ya cerró la sesión, la renovación falla pero v7.6 solo lo registra y acepta la sesión hasta que vence el token. `proxy-corto` lo pone en `0` a propósito: sin renovación el token vence de verdad | Sin él, la sesión de A y B se corta cada 60 s |
 | `CUSTOM_TEMPLATES_DIR: /templates` | Carpeta con plantillas propias del proxy. Se usa `error.html` para mostrar el 403 en español y con el estilo de las apps | El 403 sale en inglés y sin estilo |
 | `HTTP_ADDRESS: 0.0.0.0:4180` | Escucha en todas las interfaces del contenedor, puerto 4180 | Escucha solo en localhost del contenedor y no se alcanza |
 
@@ -84,9 +84,21 @@ Cómo muestran quién eres, sin que las apps tengan lógica de login:
 - Todo se escribe con `textContent` (nunca `innerHTML`), para que un dato raro no pueda inyectar HTML.
 - Si `userinfo` falla, la página dice "No se pudo leer tu sesión" en vez de quedar vacía.
 - "Ir a App X": el enlace se arma con `location.hostname` y el puerto de la otra app, así no hay IP escrita a mano.
-- Chequeo de sesión: un `setInterval` consulta `/oauth2/auth` cada 2 s; si responde 401 (la sesión murió en otra app), hace `location.reload()` y el proxy redirige al login. Es *polling*, válido para la demo.
-- Panel "Prueba: token vencido": pide un token con `cli-test` (flujo password, `fetch` a `/token` de Keycloak, necesita *Web origins* por CORS), decodifica el `exp` del JWT y llama a `/userinfo` con ese token cada segundo hasta que responde 401. Es lo mismo que `scripts/token-expirado.sh`, pero visible en la página y con un token aparte de la sesión del navegador.
+- Logout global: el clic en "Cerrar sesión" primero llama a `/oauth2/sign_out?rd=%2Foauth2%2Fauth` del proxy de la otra app (`fetch` con `mode: "no-cors"` y `credentials: "include"`, tope de 1 s) y recién después navega al logout de Keycloak. Las cookies de los proxies son del mismo host, por eso el navegador las envía. El `rd=/oauth2/auth` hace que la llamada termine en 401 y no en Keycloak, que re-loguearía a la otra app por el SSO activo. (`redirect: "manual"` con `no-cors` no sirve: Chromium lo rechaza.)
+- Chequeo de sesión: un `setInterval` consulta `/oauth2/auth` cada 1 s; si responde 401 (la sesión murió en otra app), muestra la pantalla **Sesión cerrada** con **Volver a entrar** (`location.reload()`). No recarga sola, porque con el SSO de Keycloak todavía vivo la página se volvería a loguear en silencio. Es *polling*, válido para la demo. Lo correcto en producción sería *back-channel logout* (ver "Si nos preguntan" en `GUIA-PASO-A-PASO.md`).
+- Botón "Probar token vencido": enlace a `origin:4182` (la página de prueba, ver 4.c). No maneja tokens en A ni en B.
 - "Cerrar sesión": va a `/oauth2/sign_out?rd=<logout de Keycloak>`, y ese logout lleva `client_id` y `post_logout_redirect_uri` para que Keycloak vuelva a la app (requiere *Valid post logout redirect URIs* en el cliente). El proxy borra su cookie y redirige a Keycloak, que cierra la sesión SSO. Si solo se cerrara la del proxy, entrar de nuevo reautenticaría solo (el SSO sigue vivo). Para que el proxy acepte ese `rd` externo existe `WHITELIST_DOMAINS: ${VM_IP}:8080` en el compose. Keycloak puede mostrar una pantalla de confirmación de cierre.
+
+## 4.b0 `proxy-templates/web.conf`
+
+Configuración de nginx de `web-a`, `web-b` y `web-corto` (reemplaza el `default.conf`). Igual al de fábrica salvo dos líneas: `large_client_header_buffers 4 32k` (las cookies de sesión de los tres proxies viajan juntas porque comparten host, y con el token superan los 8 KB por defecto: error 400) y `Cache-Control: no-store` (así el navegador no muestra una página guardada tras cerrar sesión: siempre pasa por el proxy).
+
+## 4.c `apps/corto/index.html` y `proxy-corto`
+
+Página de la prueba de token vencido. Es la misma plantilla que App A, más una fila "Token vence en" y una pantalla modal "Token vencido". Se sirve con `web-corto` (nginx) detrás de `proxy-corto` (puerto 4182, cliente `app-corto`).
+- `app-corto` tiene *Access Token Lifespan* de 15 s en Keycloak, y `proxy-corto` tiene `COOKIE_REFRESH: "0"` (no renueva) y `COOKIE_EXPIRE: 15s` (la sesión del proxy dura lo mismo que el token). Esto último es necesario: se probó que `oauth2-proxy` v7.6 no rechaza la sesión por el `exp` del access token, solo por el tiempo de vida de su cookie. Con ambos valores en 15 s, `/oauth2/auth` responde 401 a los 15 s.
+- `SET_XAUTHREQUEST` y `PASS_ACCESS_TOKEN` hacen que `/oauth2/auth` devuelva la cabecera `X-Auth-Request-Access-Token`. La página la decodifica (base64url, segunda parte del JWT), lee `exp` y lo resta a la hora del servidor (cabecera `Date`) para evitar errores por relojes distintos. **Solo demo**: en producción el token no se entrega al JavaScript.
+- Cada segundo consulta `/oauth2/auth`. Con 401 muestra la pantalla (no recarga sola) con **Volver a entrar** (`location.reload()`: el proxy va a Keycloak, que tiene la sesión SSO y emite otro token sin pedir contraseña) y **Cerrar sesión**.
 
 ## 4.b `keycloak-theme/untdf/login/`
 
@@ -131,6 +143,6 @@ Para App B el paso 3 cambia: el navegador ya trae la cookie de sesión de Keyclo
 5. ¿Quién decide el 403 de B: Keycloak o el proxy? (El proxy, leyendo el token; Keycloak solo puso el rol adentro.)
 6. ¿Por qué el script no necesita consultar una base para saber que el token venció?
 7. ¿Qué riesgo trae el flujo `password` y por qué solo se usa en la prueba?
-8. ¿Por qué el logout en A tardaba hasta 1 minuto en llegar a B, y qué cambia con `COOKIE_REFRESH: 2s`? ¿Qué costo tiene?
+8. ¿Por qué el logout en A tardaba hasta 1 minuto en llegar a B aunque `COOKIE_REFRESH` fuera 2 s? ¿Cómo lo resuelve la demo y cuál sería la solución correcta en producción?
 
 El stack se probó entero en la VM. Hay dos errores que aparecen si se arma mal: el 500 por audiencia (mapper, ver trampa 3 en `Guia-Teoria.md`) y `issuer did not match` (trampa 1).

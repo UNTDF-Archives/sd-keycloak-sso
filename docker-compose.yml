@@ -15,7 +15,7 @@ x-proxy-common: &proxy-common
     OAUTH2_PROXY_COOKIE_SECURE: "false"           # demo en HTTP
     OAUTH2_PROXY_COOKIE_SECRET: "0123456789abcdef0123456789abcdef"  # 32 bytes, solo demo
     OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"     # redirige directo a Keycloak
-    OAUTH2_PROXY_COOKIE_REFRESH: 2s               # revalida con Keycloak: si cerraste sesion en la otra app, esta tambien cae
+    OAUTH2_PROXY_COOKIE_REFRESH: 30s              # renueva la sesion con el refresh token (la sesion no se corta sola)
     OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
     OAUTH2_PROXY_CUSTOM_TEMPLATES_DIR: /templates
     OAUTH2_PROXY_WHITELIST_DOMAINS: ${VM_IP}:8080   # permite volver a Keycloak al cerrar sesion (rd=)
@@ -36,11 +36,11 @@ services:
 
   web-a:
     image: nginx:alpine
-    volumes: ["./apps/a:/usr/share/nginx/html:ro"]
+    volumes: ["./apps/a:/usr/share/nginx/html:ro", "./proxy-templates/web.conf:/etc/nginx/conf.d/default.conf:ro"]
 
   web-b:
     image: nginx:alpine
-    volumes: ["./apps/b:/usr/share/nginx/html:ro"]
+    volumes: ["./apps/b:/usr/share/nginx/html:ro", "./proxy-templates/web.conf:/etc/nginx/conf.d/default.conf:ro"]
 
   proxy-a:
     <<: *proxy-common
@@ -64,6 +64,25 @@ services:
       OAUTH2_PROXY_COOKIE_NAME: _proxy_b
       OAUTH2_PROXY_UPSTREAMS: http://web-b:80
       OAUTH2_PROXY_ALLOWED_ROLES: acceso-b      # AuthZ: solo con este rol
+
+  web-corto:
+    image: nginx:alpine
+    volumes: ["./apps/corto:/usr/share/nginx/html:ro", "./proxy-templates/web.conf:/etc/nginx/conf.d/default.conf:ro"]
+
+  proxy-corto:   # prueba de token vencido: cliente con token de 15 s y SIN renovacion
+    <<: *proxy-common
+    ports: ["4182:4180"]
+    environment:
+      <<: *proxy-env
+      OAUTH2_PROXY_CLIENT_ID: app-corto
+      OAUTH2_PROXY_CLIENT_SECRET: ${APP_CORTO_SECRET}
+      OAUTH2_PROXY_REDIRECT_URL: http://${VM_IP}:4182/oauth2/callback
+      OAUTH2_PROXY_COOKIE_NAME: _proxy_corto
+      OAUTH2_PROXY_UPSTREAMS: http://web-corto:80
+      OAUTH2_PROXY_COOKIE_REFRESH: "0"            # sin renovacion: al vencer el token, 401 de verdad
+      OAUTH2_PROXY_COOKIE_EXPIRE: 15s            # la sesion del proxy dura lo mismo que el token (el proxy no corta por el exp del token)
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"       # /oauth2/auth devuelve X-Auth-Request-* (la pagina lee el vencimiento)
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"      # incluye el access token en esas cabeceras (solo demo)
 
 volumes:
   kc-data:

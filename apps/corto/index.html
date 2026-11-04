@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token vencido · SSO</title>
+<style>
+  /* Tokens: tema claro "Swiss Bauhaus Chalk" de Lumina. Sin fuentes ni recursos externos. */
+  :root {
+    --bg: #f8f7f4;
+    --panel: #ffffff;
+    --ink: #131209;
+    --muted: #57534e;
+    --line: rgba(19, 18, 9, 0.14);
+    --accent: #1d4ed8;
+    --on-accent: #ffffff;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  body[data-app="b"] { --accent: #be123c; }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 1rem;
+    line-height: 1.5;
+    border-top: 12px solid var(--accent);
+  }
+  ::selection { background: var(--accent); color: var(--on-accent); }
+
+  main {
+    width: min(100% - 2rem, 56rem);
+    margin-inline: auto;
+    padding-block: clamp(2.5rem, 9vh, 6rem);
+  }
+
+  header { display: flex; align-items: center; gap: clamp(1rem, 3vw, 1.75rem); }
+  .mark {
+    flex: none;
+    width: clamp(2.75rem, 7vw, 4.25rem);
+    aspect-ratio: 1;
+    background: var(--accent);
+  }
+  body[data-app="b"] .mark { border-radius: 50%; }
+  h1 {
+    margin: 0;
+    font-size: clamp(3rem, 10vw, 5.5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    text-wrap: balance;
+  }
+  .rule { margin: 1.25rem 0 0; font-size: 1.125rem; color: var(--muted); max-width: 40ch; }
+  .rule strong { color: var(--ink); font-weight: 600; }
+
+  .panel {
+    margin-top: clamp(2rem, 6vh, 3.5rem);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--ink);
+    padding-left: clamp(1rem, 3vw, 1.75rem); padding-right: clamp(1rem, 3vw, 1.75rem);
+    animation: enter 0.5s var(--ease) both;
+  }
+  dl { margin: 0; }
+  .row {
+    display: grid;
+    grid-template-columns: 8rem 1fr;
+    gap: 0.5rem 1.5rem;
+    align-items: baseline;
+    padding-top: 1.25rem; padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+  dt { font-size: 0.875rem; color: var(--muted); }
+  dd { margin: 0; font-size: clamp(1.25rem, 3vw, 1.625rem); font-weight: 600; overflow-wrap: anywhere; }
+  dd.small { font-size: 1.125rem; font-weight: 500; }
+  .none { color: var(--muted); font-weight: 400; }
+
+  .roles { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 0; list-style: none; }
+  .role {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.25rem 0.75rem;
+    border: 1.5px solid var(--ink);
+  }
+  .role.key { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.625rem;
+    min-height: 3rem; padding: 0 1.5rem;
+    font: inherit; font-weight: 600; text-decoration: none;
+    border: 2px solid var(--accent);
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { background: var(--ink); border-color: var(--ink); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--ink); }
+  .btn.ghost:hover { background: var(--ink); color: var(--bg); }
+  .btn svg { width: 1.125rem; height: 1.125rem; }
+  .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+
+  .state { margin: 0; padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--muted); }
+
+  .overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 1rem; background: rgba(19, 18, 9, 0.6); }
+  .overlay[hidden] { display: none; }
+  .overlay .panel { margin: 0; max-width: 34rem; padding: 1.5rem clamp(1rem, 3vw, 1.75rem); border-top-color: var(--accent); border-top-width: 6px; }
+  .overlay h2 { margin: 0 0 0.5rem; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
+  .overlay p { margin: 0; color: var(--muted); }
+  .overlay code { font-family: var(--mono); color: var(--ink); }
+  button.btn { font: inherit; cursor: pointer; background: transparent; }
+  button.btn.primary { background: var(--accent); }
+
+  @keyframes enter { from { opacity: 0; transform: translateY(0.5rem); } }
+  @media (prefers-reduced-motion: reduce) { .panel { animation: none; } .btn { transition: none; } }
+  @media (max-width: 30rem) { .row { grid-template-columns: 1fr; } .btn { flex: 1 1 100%; justify-content: center; } }
+</style>
+</head>
+<body data-app="corto" data-other-name="App A" data-other-port="4180" data-realm="untdf">
+<main>
+  <header>
+    <span class="mark" aria-hidden="true"></span>
+    <h1>Token de 15 s</h1>
+  </header>
+  <p class="rule">Prueba: este token <strong>vence a los 15 segundos</strong> y no se renueva.</p>
+
+  <section class="panel" aria-live="polite" aria-label="Tu sesión">
+    <p class="state" id="state">Leyendo tu sesión…</p>
+    <dl id="session" hidden>
+      <div class="row"><dt>Usuario</dt><dd id="user"></dd></div>
+      <div class="row"><dt>Correo</dt><dd id="email" class="small"></dd></div>
+      <div class="row"><dt>Roles</dt><dd><ul class="roles" id="roles"></ul></dd></div>
+      <div class="row"><dt>Token vence en</dt><dd id="exp" class="small">…</dd></div>
+    </dl>
+  </section>
+
+  <nav class="actions" aria-label="Acciones">
+    <a class="btn primary" id="other" href="#">
+      <span id="other-label">Ir a otra app</span>
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><path d="M3 10h13M11 4l6 6-6 6"/></svg>
+    </a>
+    <a class="btn ghost" id="logout" href="#">Cerrar sesión</a>
+  </nav>
+
+</main>
+<div class="overlay" id="vencido" role="alertdialog" aria-modal="true" aria-labelledby="vencido-t" hidden>
+  <div class="panel">
+    <h2 id="vencido-t">Token vencido</h2>
+    <p>El proxy respondió <code>401</code> en <code>/oauth2/auth</code>: el token de acceso venció (o la sesión se cerró en la otra app) y ya no deja pasar.</p>
+    <p style="margin-top:0.75rem">Keycloak todavía recuerda tu sesión SSO: al volver a entrar no pide contraseña, solo emite un token nuevo.</p>
+    <div class="actions">
+      <button class="btn primary" id="reentrar" type="button">Volver a entrar</button>
+      <button class="btn ghost" id="logout2" type="button">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+
+<noscript><p class="state">Esta página necesita JavaScript para mostrar tu sesión.</p></noscript>
+<script>
+  const d = document.body.dataset;
+  const $ = (id) => document.getElementById(id);
+  const origin = location.protocol + "//" + location.hostname;
+
+  $("other").href = origin + ":" + d.otherPort + "/";
+  $("other-label").textContent = "Ir a " + d.otherName;
+  // Cierra la sesión del proxy y luego la de Keycloak (si no, el SSO vuelve a entrar solo).
+  // Keycloak vuelve a esta app al terminar (post_logout_redirect_uri) y pide login de nuevo.
+  $("logout").href = "/oauth2/sign_out?rd=" + encodeURIComponent(
+    origin + ":8080/realms/" + d.realm + "/protocol/openid-connect/logout" +
+    "?client_id=app-" + d.app + "&post_logout_redirect_uri=" + encodeURIComponent(location.origin + "/"));
+
+  // Logout global: antes de ir a Keycloak, cierra tambien la sesion del proxy de la otra app.
+  // Su cookie es de este mismo host (otro puerto), asi que el navegador la envia; redirect "manual"
+  // evita seguir el 302 hacia Keycloak (que volveria a loguear a la otra app por el SSO).
+  $("logout").addEventListener("click", async (e) => {
+    e.preventDefault();
+    const destino = $("logout").href;
+    await Promise.race([
+      fetch(origin + ":" + d.otherPort + "/oauth2/sign_out", { mode: "no-cors", credentials: "include", redirect: "manual" }).catch(() => {}),
+      new Promise((r) => setTimeout(r, 1000)),
+    ]);
+    location.href = destino;
+  });
+
+  // userinfo lista los roles de realm como "role:<nombre>"; se muestran solo los de negocio.
+  const ruido = new Set(["offline_access", "uma_authorization"]);
+  const esNegocio = (r) => !r.includes(":") && !ruido.has(r) && !r.startsWith("default-roles-");
+
+  fetch("/oauth2/userinfo", { headers: { Accept: "application/json" } })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then((u) => {
+      $("user").textContent = u.preferredUsername || u.user;
+      $("email").textContent = u.email || "—";
+      const roles = (u.groups || []).filter((g) => g.startsWith("role:")).map((g) => g.slice(5)).filter(esNegocio);
+      if (!roles.length) {
+        const li = document.createElement("li");
+        li.className = "none";
+        li.textContent = "Sin roles de acceso";
+        $("roles").append(li);
+      }
+      roles.forEach((r) => {
+        const li = document.createElement("li");
+        li.className = "role" + (r === "acceso-b" ? " key" : "");
+        li.textContent = r;
+        $("roles").append(li);
+      });
+      $("state").hidden = true;
+      $("session").hidden = false;
+    })
+    .catch(() => { $("state").textContent = "No se pudo leer tu sesión. Recarga la página."; });
+
+  // Token real de la sesion: el proxy lo expone en /oauth2/auth (PASS_ACCESS_TOKEN + SET_XAUTHREQUEST, solo demo).
+  // Cuando vence, /oauth2/auth responde 401 y se muestra la pantalla de error. No se recarga sola.
+  let timer;
+  const vencido = () => { clearInterval(timer); $("vencido").hidden = false; $("reentrar").focus(); };
+  const poll = async () => {
+    try {
+      const r = await fetch("/oauth2/auth", { cache: "no-store" });
+      if (r.status === 401) return vencido();
+      const t = r.headers.get("X-Auth-Request-Access-Token");
+      if (!t) return;
+      const { exp } = JSON.parse(atob(t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const ahora = Date.parse(r.headers.get("Date")) / 1000;   // reloj del servidor, no del navegador
+      $("exp").textContent = Math.max(0, Math.round(exp - ahora)) + " s";
+    } catch (e) { /* red caida: se reintenta */ }
+  };
+  timer = setInterval(poll, 1000);
+  poll();
+  $("reentrar").addEventListener("click", () => location.reload());
+  $("logout2").addEventListener("click", () => $("logout").click());
+</script>
+</body>
+</html>
