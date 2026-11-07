@@ -1,6 +1,6 @@
 # projectmem - sd-keycloak-sso
 
-_Last updated: 2026-10-31_
+_Last updated: 2026-11-04_
 
 ## Project purpose
 Demo del Grupo 2 de Sistemas Distribuidos (UNTDF). Un login único (SSO) para dos apps, con un rol que decide el acceso.
@@ -14,6 +14,10 @@ Demo del Grupo 2 de Sistemas Distribuidos (UNTDF). Un login único (SSO) para do
 ## Notes
 - New feature: feat: demo de SSO con Keycloak y oauth2-proxy [apps/a/index.html]
 - New feature: feat: páginas de demo rediseñadas, textos en español y guía del profesor [apps/a/index.html]
+- Merge: feat(proxy): :sparkles: rediseña página de error con enlace a App A
+- New feature: feat: :sparkles: logout global, tema de login y panel de token vencido [apps/a/index.html]
+- New feature: feat: :sparkles: token vencido real, logout entre apps y prueba E2E [apps/a/index.html]
+- New feature: feat: :sparkles: panel con el JWT decodificado y respaldo del realm [apps/corto/index.html]
 
 ## Key files
 - `apps/a/index.html`
@@ -28,6 +32,12 @@ Demo del Grupo 2 de Sistemas Distribuidos (UNTDF). Un login único (SSO) para do
 - `docs/verificacion.md`
 - `SD-guia-grupo-2-auth-oauth-jwt.pdf`
 - `proxy-templates/error.html`
+- `docs/DEMO.md`
+- `docs/GUIA-PASO-A-PASO.md`
+- `keycloak-theme/untdf/login/resources/css/untdf.css`
+- `keycloak-theme/untdf/login/theme.properties`
+- `apps/corto/index.html`
+- `proxy-templates/web.conf`
 
 ## Open questions
 - None logged yet.
