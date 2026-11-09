@@ -54,7 +54,7 @@ Usuarios de prueba del realm `untdf` (los de la VM actual):
 2. Abrir B en la misma ventana: entra **sin pedir login** (SSO).
 3. **Cerrar sesión** en B (confirmar en Keycloak): A, que estaba abierta, muestra en 1–2 s **Sesión cerrada**; **Volver a entrar** pide login. Repetir al revés, cerrando en A.
 4. Entrar como `bob`: A funciona, B muestra la pantalla de acceso denegado (403).
-5. Botón **Probar token vencido**: aparece "Token vence en N s", debajo el panel **Así es el token (JWT)** (cabecera, claims, firma) y a los 15 s sale la pantalla **Token vencido**. **Volver a entrar** no pide contraseña (la sesión SSO sigue viva) y da un token nuevo.
+5. Botón **Probar token vencido**: aparece "Token vence en N s" con el estado del proxy (`202 Accepted`) y a los 15 s pasa a la pantalla **401 Unauthorized** mostrando la respuesta HTTP real del proxy (con enlace a `/oauth2/userinfo` crudo). **Volver a entrar** no pide contraseña (la sesión SSO sigue viva) y da un token nuevo.
 6. Por consola, desde tu PC: `./scripts/token-expirado.sh alice` (necesita un `.env` local con `VM_IP` y `REALM`).
 7. Todo lo anterior, automático, con Chromium headless (sin instalar nada; Node 22+): `node scripts/e2e.mjs capturas`. Imprime `OK` o `FALLA` por paso, termina con `TODO OK` y guarda capturas en esa carpeta. Usa los usuarios `alice` y `bob` de la tabla de arriba y tarda unos 2 minutos.
 

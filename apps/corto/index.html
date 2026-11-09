@@ -18,7 +18,7 @@
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
-  body[data-app="b"] { --accent: #be123c; }
+  body[data-app="b"], body[data-expired="true"] { --accent: #be123c; }
 
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
@@ -108,25 +108,26 @@
   .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
   .state { margin: 0; padding-top: 1.5rem; padding-bottom: 1.5rem; color: var(--muted); }
+  main[hidden] { display: none; }
 
-  .overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 1rem; background: rgba(19, 18, 9, 0.6); }
-  .overlay[hidden] { display: none; }
-  .overlay .panel { margin: 0; max-width: 34rem; padding: 1.5rem clamp(1rem, 3vw, 1.75rem); border-top-color: var(--accent); border-top-width: 6px; }
-  .overlay h2 { margin: 0 0 0.5rem; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
-  .overlay p { margin: 0; color: var(--muted); }
-  .overlay code { font-family: var(--mono); color: var(--ink); }
+  .panel h2 { margin: 0 0 0.5rem; font-size: clamp(1.25rem, 3vw, 1.625rem); font-weight: 600; }
+  .panel p { margin: 0; color: var(--muted); }
+  .panel code, dd.mono { font-family: var(--mono); color: var(--ink); }
+  .http {
+    margin: 1rem 0 0;
+    padding: 0.875rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--ink);
+  }
   button.btn { font: inherit; cursor: pointer; background: transparent; }
   button.btn.primary { background: var(--accent); }
-
-  .jwt { margin-top: 1.5rem; padding-block: 1.5rem; }
-  .jwt h2 { margin: 0 0 0.25rem; font-size: 1.25rem; font-weight: 700; }
-  .jwt p { margin: 0.5rem 0 0; color: var(--muted); }
-  .tok { margin: 1rem 0 0; padding: 0.75rem; max-height: 7.5rem; overflow: auto; background: var(--bg); border: 1px solid var(--line);
-         font-family: var(--mono); font-size: 0.75rem; line-height: 1.4; overflow-wrap: anywhere; color: var(--ink); }
-  .tok .h { color: var(--accent); } .tok .f { color: var(--muted); }
-  .jwt .row { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-  .jwt dd { font-size: 1rem; font-weight: 500; font-family: var(--mono); }
-  .jwt a { color: var(--ink); }
 
   @keyframes enter { from { opacity: 0; transform: translateY(0.5rem); } }
   @media (prefers-reduced-motion: reduce) { .panel { animation: none; } .btn { transition: none; } }
@@ -134,7 +135,7 @@
 </style>
 </head>
 <body data-app="corto" data-other-name="App A" data-other-port="4180" data-realm="untdf">
-<main>
+<main id="activa">
   <header>
     <span class="mark" aria-hidden="true"></span>
     <h1>Token de 15 s</h1>
@@ -148,22 +149,8 @@
       <div class="row"><dt>Correo</dt><dd id="email" class="small"></dd></div>
       <div class="row"><dt>Roles</dt><dd><ul class="roles" id="roles"></ul></dd></div>
       <div class="row"><dt>Token vence en</dt><dd id="exp" class="small">…</dd></div>
+      <div class="row"><dt>Proxy</dt><dd id="proxy-status" class="small mono">GET /oauth2/auth · 202 Accepted</dd></div>
     </dl>
-  </section>
-
-  <section class="panel jwt" id="jwt" aria-label="Token decodificado" hidden>
-    <h2>Así es el token (JWT)</h2>
-    <p>Tres partes separadas por puntos: <span style="color:var(--accent);font-weight:600">cabecera</span>, <strong>contenido (claims)</strong> y <span style="font-weight:600;color:var(--muted)">firma</span>.</p>
-    <p class="tok" id="tok"></p>
-    <dl>
-      <div class="row"><dt>Algoritmo</dt><dd id="j-alg"></dd></div>
-      <div class="row"><dt>Emisor (iss)</dt><dd id="j-iss"></dd></div>
-      <div class="row"><dt>Usuario</dt><dd id="j-user"></dd></div>
-      <div class="row"><dt>Para quién (aud)</dt><dd id="j-aud"></dd></div>
-      <div class="row"><dt>Roles</dt><dd id="j-roles"></dd></div>
-      <div class="row"><dt>Emitido / vence</dt><dd id="j-time"></dd></div>
-    </dl>
-    <p>La <strong>firma</strong> la calculó Keycloak con su clave privada. Cualquier servicio la comprueba con la <a id="j-certs" href="#" target="_blank" rel="noopener">clave pública</a> sin volver a preguntarle a Keycloak: por eso un JWT se valida solo. Si alguien cambia un carácter del contenido, la firma ya no coincide y el token se rechaza. Acá el proxy ya la validó al entrar.</p>
   </section>
 
   <nav class="actions" aria-label="Acciones">
@@ -173,19 +160,25 @@
     </a>
     <a class="btn ghost" id="logout" href="#">Cerrar sesión</a>
   </nav>
-
 </main>
-<div class="overlay" id="vencido" role="alertdialog" aria-modal="true" aria-labelledby="vencido-t" hidden>
-  <div class="panel">
-    <h2 id="vencido-t">Token vencido</h2>
-    <p>El proxy respondió <code>401</code> en <code>/oauth2/auth</code>: el token de acceso venció (o la sesión se cerró en la otra app) y ya no deja pasar.</p>
-    <p style="margin-top:0.75rem">Keycloak todavía recuerda tu sesión SSO: al volver a entrar no pide contraseña, solo emite un token nuevo.</p>
-    <div class="actions">
-      <button class="btn primary" id="reentrar" type="button">Volver a entrar</button>
-      <button class="btn ghost" id="logout2" type="button">Cerrar sesión</button>
-    </div>
-  </div>
-</div>
+
+<main id="vencido" hidden>
+  <header>
+    <span class="mark" aria-hidden="true"></span>
+    <h1>401</h1>
+  </header>
+  <p class="rule">Sesión: <strong>token de acceso vencido</strong>.</p>
+  <section class="panel" style="padding-top:1.25rem;padding-bottom:1.25rem" aria-label="Detalle">
+    <h2>401 Unauthorized</h2>
+    <p>El token de 15 s expiró sin renovación y <code>oauth2-proxy</code> rechazó la solicitud:</p>
+    <pre class="http" id="http-raw"></pre>
+  </section>
+  <nav class="actions" aria-label="Acciones">
+    <button class="btn primary" id="reentrar" type="button">Volver a entrar</button>
+    <a class="btn ghost" href="/oauth2/userinfo" target="_blank" rel="noopener">Ver /oauth2/userinfo crudo</a>
+    <button class="btn ghost" id="logout2" type="button">Cerrar sesión</button>
+  </nav>
+</main>
 
 
 <noscript><p class="state">Esta página necesita JavaScript para mostrar tu sesión.</p></noscript>
@@ -203,13 +196,11 @@
     "?client_id=app-" + d.app + "&post_logout_redirect_uri=" + encodeURIComponent(location.origin + "/"));
 
   // Logout global: antes de ir a Keycloak, cierra tambien la sesion del proxy de la otra app.
-  // Su cookie es de este mismo host (otro puerto), asi que el navegador la envia; redirect "manual"
-  // evita seguir el 302 hacia Keycloak (que volveria a loguear a la otra app por el SSO).
   $("logout").addEventListener("click", async (e) => {
     e.preventDefault();
     const destino = $("logout").href;
     await Promise.race([
-      fetch(origin + ":" + d.otherPort + "/oauth2/sign_out", { mode: "no-cors", credentials: "include", redirect: "manual" }).catch(() => {}),
+      fetch(origin + ":" + d.otherPort + "/oauth2/sign_out?rd=%2Foauth2%2Fauth", { mode: "no-cors", credentials: "include" }).catch(() => {}),
       new Promise((r) => setTimeout(r, 1000)),
     ]);
     location.href = destino;
@@ -243,41 +234,35 @@
     .catch(() => { $("state").textContent = "No se pudo leer tu sesión. Recarga la página."; });
 
   // Token real de la sesion: el proxy lo expone en /oauth2/auth (PASS_ACCESS_TOKEN + SET_XAUTHREQUEST, solo demo).
-  // Cuando vence, /oauth2/auth responde 401 y se muestra la pantalla de error. No se recarga sola.
-  // Decodifica y muestra el JWT. Todo con textContent (nunca innerHTML).
+  // Cuando vence, /oauth2/auth responde 401 y se muestra la respuesta HTTP real del proxy.
   const b64json = (b) => JSON.parse(atob(b.replace(/-/g, "+").replace(/_/g, "/")));
-  const hora = (seg) => new Date(seg * 1000).toLocaleTimeString("es-AR");
-  let ultimo = "";
-  const mostrarJwt = (t) => {
-    const [h, c, f] = t.split(".");
-    const hd = b64json(h), cl = b64json(c);
-    const tok = $("tok"); tok.textContent = "";
-    [[h, "h"], [c, ""], [f, "f"]].forEach(([txt, cls], i) => {
-      if (i) tok.append(".");
-      const sp = document.createElement("span"); sp.className = cls; sp.textContent = txt; tok.append(sp);
-    });
-    $("j-alg").textContent = hd.alg + " · kid " + String(hd.kid || "").slice(0, 8) + "…";
-    $("j-iss").textContent = cl.iss;
-    $("j-user").textContent = cl.preferred_username || cl.sub;
-    $("j-aud").textContent = [].concat(cl.aud || []).join(", ") + " (azp " + cl.azp + ")";
-    $("j-roles").textContent = ((cl.realm_access || {}).roles || []).filter(esNegocio).join(", ") || "sin roles de acceso";
-    $("j-time").textContent = hora(cl.iat) + " → " + hora(cl.exp) + " (" + (cl.exp - cl.iat) + " s)";
-    $("j-certs").href = origin + ":8080/realms/" + d.realm + "/protocol/openid-connect/certs";
-    $("jwt").hidden = false;
-  };
 
   let timer;
-  const vencido = () => { clearInterval(timer); $("vencido").hidden = false; $("reentrar").focus(); };
+  const mostrar401 = async (r) => {
+    clearInterval(timer);
+    const body = (await r.text().catch(() => "")).trim() || "Unauthorized";
+    const hdrs = ["date", "content-type", "x-content-type-options", "content-length"]
+      .map((k) => [k, r.headers.get(k)]).filter(([, v]) => v).map(([k, v]) => k + ": " + v).join("\n");
+    $("http-raw").textContent =
+      "GET /oauth2/auth HTTP/1.1\nHost: " + location.host + "\n\n" +
+      "HTTP/1.1 " + r.status + " " + (r.statusText || "Unauthorized") + "\n" +
+      hdrs + "\n\n" + body;
+    document.body.dataset.expired = "true";
+    document.title = "401 · Acceso";
+    $("activa").hidden = true;
+    $("vencido").hidden = false;
+    $("reentrar").focus();
+  };
   const poll = async () => {
     try {
       const r = await fetch("/oauth2/auth", { cache: "no-store" });
-      if (r.status === 401) return vencido();
+      if (r.status === 401) return mostrar401(r);
+      $("proxy-status").textContent = "GET /oauth2/auth · " + r.status + " " + (r.statusText || "Accepted");
       const t = r.headers.get("X-Auth-Request-Access-Token");
       if (!t) return;
       const { exp } = b64json(t.split(".")[1]);
       const ahora = Date.parse(r.headers.get("Date")) / 1000;   // reloj del servidor, no del navegador
       $("exp").textContent = Math.max(0, Math.round(exp - ahora)) + " s";
-      if (t !== ultimo) { ultimo = t; mostrarJwt(t); }
     } catch (e) { /* red caida: se reintenta */ }
   };
   timer = setInterval(poll, 1000);
